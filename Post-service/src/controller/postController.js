@@ -42,4 +42,41 @@ const validateSchema = require('../utils/validate');
     }
  }
 
- module.exports={createPost}
+ const getAllPosts=async(req,res)=>{
+
+   try {
+     const page=parseInt(req.query.page) ||1;
+     const limit=parseInt(req.query.limit) ||10;
+     const startIndex=(page-1)*limit;  //pagination 0-9 index and 10-19
+     const cacheKey=`posts:${page}:${limit}`;
+     const cachedPosts=await req.redisClient.get(cacheKey);
+ 
+     if(cachedPosts){
+         return res.json(JSON.parse(cachedPosts))
+     }
+ 
+     const posts=await Post.find({})
+     .sort({createdAt:-1})
+     .skip(startIndex)
+     .limit(limit);
+ 
+     const totalNoOfPosts=await Post.countDocuments();
+ 
+     const results={
+         posts,
+         currentPage:page,
+         totalPosts:totalNoOfPosts
+     }
+     await req.redisClient.setex(cacheKey,300,JSON.stringify(results))
+ 
+     res.status(200).json(results)
+   } catch (error) {
+    logger.warn("Error fetching posts",error)
+    res.status(500).json({
+        message:"Error fetching posts",
+        success:false
+    })
+   }
+ }
+
+ module.exports={createPost,getAllPosts}
