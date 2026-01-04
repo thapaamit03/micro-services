@@ -79,4 +79,66 @@ const validateSchema = require('../utils/validate');
    }
  }
 
- module.exports={createPost,getAllPosts}
+ const getPost=async (req,res) => {
+
+    try {
+        const postId=req.params.id;
+        const cacheKey=`post:${postId}`;
+        const cachedPost=await req.redisClient.get(cacheKey);
+    
+        if(cachedPost){
+            return res.status(200).json(cachedPost)
+        }
+    
+        const singlePost=await Post.findById(postId);
+        if(!singlePost){
+            return res.status(400).json({
+                message:"Post not found ",
+                success:false
+            })
+        }
+    
+        await req.redisClient.setex(cacheKey,1800,JSON.stringify(singlePost));
+        res.status(200).json(singlePost)
+        
+    } catch (error) {
+        logger.error("error during fetched",error.message);
+        res.status(500).json({
+            success:false,
+            message:"internal server error"
+        })
+    }
+    
+ }
+
+ const deletePost=async(req,res)=>{
+
+    try {
+        const postId=req.params.id;
+        const cacheKey=`post:${postId}`
+        const cachedPost=await req.redisClient.get(cacheKey);
+        if(cachedPost){
+            await res.redisClient.del(cacheKey)
+        }
+    
+        const deletedPost=await Post.findByIdAndDelete(postId);
+        if(!deletedPost){
+            return res.status(500).json({
+                success:false,
+                message:"invalid post id"
+            })
+        }
+        res.status(200).json({
+            message:"post deleted successfully",
+            deletedPost
+        })
+    } catch (error) {
+        logger.error("error while deleting post",error.message);
+        res.status(500).json({
+            success:false,
+            message:'cannot delete post'
+        })
+    }
+ }
+
+ module.exports={createPost,getAllPosts,getPost,deletePost}
