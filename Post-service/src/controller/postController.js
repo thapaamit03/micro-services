@@ -1,5 +1,6 @@
  const Post = require('../models/post');
 const logger=require('../utils/logger');
+const { publishEvent } = require('../utils/rabbitmq');
 const validateSchema = require('../utils/validate');
  const createPost=async(req,res)=>{
     logger.info("post service endpoint...")
@@ -14,7 +15,7 @@ const validateSchema = require('../utils/validate');
         })
     }
     
-        const{content,mediaUrls}=req.body;
+        const{content,mediaIds}=req.body;
         if (!req.user || !req.user.userId) {
     return res.status(401).json({
         success: false,
@@ -24,7 +25,7 @@ const validateSchema = require('../utils/validate');
         const newlyCreatedPost=new Post({
             user:req.user.userId,
             content,
-            mediaUrls:mediaUrls || []
+            mediaIds:mediaIds|| []
         })
         await newlyCreatedPost.save();
         logger.info("post created successfullt")
@@ -121,16 +122,31 @@ const validateSchema = require('../utils/validate');
             await res.redisClient.del(cacheKey)
         }
     
-        const deletedPost=await Post.findByIdAndDelete(postId);
-        if(!deletedPost){
+        const post=await Post.findOneAndDelete(
+            {
+                
+                _id:postId,
+                user:req.user.userId
+            }
+        );
+        if(!post){
             return res.status(500).json({
                 success:false,
                 message:"invalid post id"
             })
         }
+    
+//publish post delete event or method & post.deleted is routing key based on that
+//key we are consuming event
+
+await  publishEvent('post.deleted',{
+    postId:post._id.toString(),
+    userId:req.user.userId,
+    mediaIds:post.mediaIds
+});
         res.status(200).json({
             message:"post deleted successfully",
-            deletedPost
+           post
         })
     } catch (error) {
         logger.error("error while deleting post",error.message);
