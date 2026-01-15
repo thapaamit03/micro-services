@@ -113,7 +113,7 @@ app.use('/v1/media',validateToken,proxy(process.env.MEDIA_SERVICE_URL,{
             proxyReqOpts.headers["Content-Type"]='application/json'
         }
 
-        return proxyReqOpts
+        return proxyReqOpts 
     },
     userResDecorator:(proxyRes,proxyResData,userReq,userRes)=>{
         logger.info(`response from media service ${proxyRes.statusCode}`)
@@ -124,7 +124,41 @@ app.use('/v1/media',validateToken,proxy(process.env.MEDIA_SERVICE_URL,{
 
     
 }))
+//proxy for search service
+app.use('/v1/search',validateToken,proxy(process.env.SEARCH_SERVICE_URL,{
+    ...proxyOptions,
+    proxyReqOptDecorator:(proxyReqOpts,srcReq)=>{
 
+        proxyReqOpts.headers["x-user-id"]=srcReq.user.userId;
+        proxyReqOpts.headers["content-type"]="application/json";
+
+        return proxyReqOpts;
+    },
+    userResDecorator:(proxyRes,proxyResData,userReq,userRes)=>{
+        logger.info(`response from search service ${proxyRes.statusCode}`)
+
+        return proxyResData;
+    }
+}
+))
+
+//setting up proxy for notification-service
+app.use("/v1/notification",validateToken,proxy(process.env.NOTIFICATION_SERVICE_URL,{
+    ...proxyOptions,
+    proxyReqOptDecorator:(proxyReqOpts,srcReq)=>{
+
+        proxyReqOpts.headers["x-user-id"]=srcReq.user.userId;
+        
+        return proxyReqOpts;
+    },
+    userResDecorator:(proxyRes,proxyResData,userReq,userRes)=>{
+
+        logger.info("response from notification service",proxyRes.statusCode);
+
+        return proxyResData;
+    }
+}
+))
 
 app.use(errorHandler);
 
@@ -134,6 +168,9 @@ app.listen(PORT,()=>{
     logger.info(`User service  is running on : ${process.env.USER_SERVICE_URL}`)
      logger.info(`Post service  is running on : ${process.env.POST_SERVICE_URL}`)
      logger.info(`Media service is running in :${process.env.MEDIA_SERVICE_URL}`)
+     logger.info(`Search service is running in :${process.env.SEARCH_SERVICE_URL}`)
+     logger.info(`Notifiaction service is runnnig in :${process.env.NOTIFICATION_SERVICE_URL}`)
     logger.info(`Redis url : ${process.env.REDIS_URL}`)
+    logger.info(`RabbitMQ url: ${process.env.RABBITMQ_URL} `)
 
 })
