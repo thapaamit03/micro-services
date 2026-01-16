@@ -6,6 +6,8 @@ const logger = require('./utils/logger');
 const errorHandler=require('./middleware/errorHandler');
 const mediaRoutes=require('./routes/mediaRoutes')
 const {rateLimit}=require('express-rate-limit');
+const { connectToRabbitMq, consumeEvent } = require('./utils/rabbitmq');
+const handledPostDeleted = require('./controller/mediaEventHandler');
 const app=express();
 const PORT=process.env.PORT;
 app.use(express.json());
@@ -38,14 +40,30 @@ const sensitiveEndPointLimiter=rateLimit({
     }
 }
 )
-app.use('/api/media',mediaRoutes);
+app.use('/api/media',sensitiveEndPointLimiter,mediaRoutes);
 
 app.use(errorHandler);
-app.listen(PORT,()=>{
 
-    logger.info(`Media service is running in port:${PORT}`)
+async function startServer() {
+    
+    try {
+        await connectToRabbitMq();
+
+        //consume all events and post.deleted is routing key
+        await consumeEvent('post.deleted',handledPostDeleted)
+
+
+        app.listen(PORT,()=>{
+    
+        logger.info(`Media service is running in port:${PORT}`)
+    }
+    )
+    } catch (error) {
+        logger.error('failed to connect to server',error)
+    }
 }
-)
+startServer();
+
 
 process.on("unhandledRejection",(reason,promise)=>{
     logger.info( 'unhandled rejection at',promise,'reason',reason)
