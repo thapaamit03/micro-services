@@ -7,7 +7,8 @@ const logger=require('./utils/logger')
 const errorHandler=require('./middleware/errorHandler')
 const {rateLimit}=require('express-rate-limit')
 const {RedisStore}=require('rate-limit-redis')
-const postRoutes=require('./routes/postRoutes.js')
+const postRoutes=require('./routes/postRoutes.js');
+const { connectToRabbitMq } = require('./utils/rabbitmq.js');
 
 const app=express();
 const PORT=process.env.PORT;
@@ -35,7 +36,7 @@ const redisClient=new Redis(process.env.REDIS_URL);
 //ip based rate limiting
 
 const sensitiveEndPointLimiter=rateLimit({
-    windowMs:1024*16*10,
+    windowMs:16*10*1024,
     max:50,
     standardHeaders:true,
     legacyHeaders:false,
@@ -52,7 +53,7 @@ const sensitiveEndPointLimiter=rateLimit({
     })
 })
 
-app.use('api/posts',sensitiveEndPointLimiter);
+app.use('/api/posts',sensitiveEndPointLimiter);
 
 //routes=>pass redisclient to request 
 app.use('/api/posts',(req,res,next)=>{
@@ -64,9 +65,19 @@ app.use('/api/posts',(req,res,next)=>{
 
 app.use(errorHandler)
 
-app.listen(PORT,()=>{
-    logger.info(`Post-service is lsitening in ${PORT}`)
-})
+async function startServer(){
+    
+    try {
+        await connectToRabbitMq();
+        app.listen(PORT,()=>{
+        logger.info(`Post-service is running in ${PORT}`)
+    })
+    } catch (error) {
+        logger.info('Failed to connect to server',error)
+    }
+}
+
+startServer();
 
 process.on( "unhandledRejection",(reason,promise)=>{
         logger.error("Unhandled rejection at",promise,"reason",reason)
