@@ -12,7 +12,7 @@ async function connectToRabbitMq(){
      connection=await ampq.connect(process.env.RABBITMQ_URL);
      channel=await connection.createChannel();
  
-     await channel.assertExchange(EXCHANGE_NAME,"topic",{durable:false});
+     await channel.assertExchange(EXCHANGE_NAME,"topic",{durable:false}); //exchange is deleted if rabbitmq is restart
      logger.info("Connected to rabbit mq");
      return channel;
    } catch (error) {
