@@ -1,14 +1,14 @@
 const mongoose=require('mongoose');
 const express=require('express');
 const cors=require('cors');
-const logger = require('../utils/logger');
+const logger = require('./utils/logger');
 const helmet=require('helmet');
 const {RateLimiterRedis}=require('rate-limiter-flexible')
 const Redis=require('ioredis');
 const {rateLimit}=require('express-rate-limit')
 const {RedisStore}=require('rate-limit-redis')
-const userRoutes=require('../routes/userRoutes');
-const errorHandler = require('../Middleware/errorHandler');
+const userRoutes=require('./routes/userRoutes');
+const errorHandler = require('./Middleware/errorHandler');
 const app=express()
 
 const PORT=process.env.PORT;

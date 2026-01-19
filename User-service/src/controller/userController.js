@@ -1,3 +1,4 @@
+
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const logger = require("../utils/logger")
@@ -12,7 +13,7 @@ const userRegistration=async(req,res)=>{
         if(error){
             logger.warn('validation error',error.details[0].message)  
             return res.status(400).json({
-                message:error.details[0].message,
+                message:"all fields are required",
                 success:false
             })
         }
@@ -99,5 +100,54 @@ const userLogin=async(req,res)=>{
     }
 
 }
+const userLogout=async(req,res)=>{
 
-module.exports={userRegistration,userLogin}
+    await User.findByIdAndUpdate(req.user._id,{
+        $set:{refreshToken:undefined},
+        new:true
+    })
+    
+
+}
+const refreshAccessToken=async(req,res)=>{
+
+   try {
+     const {refreshToken}=req.body;
+ 
+     if(!refreshToken){
+         logger.warn("Invalid refresh token")
+         return res.status(401).json({
+             message:"Invalid refresh token", 
+             success:false
+         })
+     }
+     const user=await User.findById(refreshToken._id);
+     if(!user){
+         logger.warn("user not exist")
+         return res.status(404).json({
+             message:"user not found",
+             success:false
+         })
+     }
+ 
+     const {accessToken:newAccessToken,refreshToken:newRefreshToken}=await generateToken(user);
+     
+     res.status(200).json({
+         accessToken:newAccessToken,
+         refreshToken:newRefreshToken,
+         message:"refresh token generated successfully",
+         success:true
+     })
+   } catch (error) {
+        logger.warn("internal server error",error)
+        res.status(500).json({
+            message:"internal server error",
+            success:false
+        })
+   }
+
+
+}
+
+
+module.exports={userRegistration,userLogin,refreshAccessToken}
